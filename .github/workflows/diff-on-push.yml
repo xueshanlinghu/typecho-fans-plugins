@@ -1,0 +1,108 @@
+
+name: "推送检测改动表格条目"
+
+on:
+  push:
+    branches:
+      - "master"
+
+jobs:
+
+  diff-update:
+    name: "更新有变动的插件zip"
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "生成实时diff"
+        id: match-diff
+        run: |
+          mkdir -p /home/runner/work/plugins/TMP
+          diff=$(git diff HEAD^2 HEAD 2>/dev/null || git diff HEAD^ HEAD)
+          if echo "$diff" | tee /home/runner/work/plugins/TMP/latest.diff | grep -qE "^\+\+\+ b/(TESTORE\.md|README\.md)"
+          then
+              echo md=1 >> $GITHUB_OUTPUT
+          else
+              echo md= >> $GITHUB_OUTPUT
+          fi
+
+      - name: "执行PHP脚本"
+        if: steps.match-diff.outputs.md
+        run: |
+          php AUTO-UPDATE.php ${{ secrets.GITHUB_TOKEN }} /home/runner/work/plugins/TMP/latest.diff
+
+      - name: "提交更新文件"
+        uses: stefanzweifel/git-auto-commit-action@v6
+        if: steps.match-diff.outputs.md
+        with:
+          commit_message: "Auto update altered plugins in TESTORE.md & README.md"
+
+      - name: "上传操作记录"
+        uses: actions/upload-artifact@v4
+        if: steps.match-diff.outputs.md
+        with:
+          name: "updates-log"
+          path: /home/runner/work/plugins/TMP/updates.log
+
+      - name: "检测压缩文件"
+        id: match-zips
+        if: steps.match-diff.outputs.md
+        run: |
+          echo A2C=$(find /home/runner/work/plugins/NEW -type f -name "[a-cA-C]*") >> $GITHUB_OUTPUT
+          echo D2G=$(find /home/runner/work/plugins/NEW -type f -name "[d-gD-G]*") >> $GITHUB_OUTPUT
+          echo H2L=$(find /home/runner/work/plugins/NEW -type f -name "[h-lH-L]*") >> $GITHUB_OUTPUT
+          echo M2R=$(find /home/runner/work/plugins/NEW -type f -name "[m-rM-R]*") >> $GITHUB_OUTPUT
+          echo S2Z=$(find /home/runner/work/plugins/NEW -type f -name "[s-zS-Z]*") >> $GITHUB_OUTPUT
+
+      - name: "发布压缩包A-C"
+        uses: svenstaro/upload-release-action@v2
+        if: steps.match-zips.outputs.A2C
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /home/runner/work/plugins/NEW/[a-cA-C]*
+          tag: "plugins-A_to_C"
+          overwrite: true
+          file_glob: true
+
+      - name: "发布压缩包D-G"
+        uses: svenstaro/upload-release-action@v2
+        if: steps.match-zips.outputs.D2G
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /home/runner/work/plugins/NEW/[d-gD-G]*
+          tag: "plugins-D_to_G"
+          overwrite: true
+          file_glob: true
+
+      - name: "发布压缩包H-L"
+        uses: svenstaro/upload-release-action@v2
+        if: steps.match-zips.outputs.H2L
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /home/runner/work/plugins/NEW/[h-lH-L]*
+          tag: "plugins-H_to_L"
+          overwrite: true
+          file_glob: true
+
+      - name: "发布压缩包M-R"
+        uses: svenstaro/upload-release-action@v2
+        if: steps.match-zips.outputs.M2R
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /home/runner/work/plugins/NEW/[m-rM-R]*
+          tag: "plugins-M_to_R"
+          overwrite: true
+          file_glob: true
+
+      - name: "发布压缩包S-Z"
+        uses: svenstaro/upload-release-action@v2
+        if: steps.match-zips.outputs.S2Z
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /home/runner/work/plugins/NEW/[s-zS-Z]*
+          tag: "plugins-S_to_Z"
+          overwrite: true
+          file_glob: true
